@@ -72,7 +72,7 @@ const videoCard = (item) => {
   };
 };
 
-export default class SoraniSpider {
+class SoraniSpider {
   init(ext = "") {
     this.ext = {};
     if (ext && typeof ext === "object") {
@@ -231,4 +231,10 @@ export default class SoraniSpider {
       header: this.headers()
     };
   }
+}
+
+// Yingxia calls the module default export as a factory function.
+// Do not export the class directly: that causes "Class constructor ... cannot be invoked without 'new'".
+export default function createSoraniSpider() {
+  return new SoraniSpider();
 }
