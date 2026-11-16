@@ -368,7 +368,7 @@ class Spider(SpiderBase):
                     remarks = (remarks + " · " if remarks else "") + "%s集" % cnt
 
                 clean_remarks = remarks.strip()
-                final_remarks = "name | %s" % clean_remarks if clean_remarks else "蝴蝶影视"
+                final_remarks = "name | %s" % clean_remarks if clean_remarks else "name"
 
                 items.append({
                     "vod_id": vid,
