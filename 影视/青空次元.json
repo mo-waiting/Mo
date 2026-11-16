@@ -4,14 +4,42 @@
       "key": "sorani",
       "name": "Sorani",
       "type": 3,
-      "api": "https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/影视/sorani.js",
+      "api": "./sorani.js?rev=20261116-web-login-prototype-1",
+      "searchable": 1,
+      "quickSearch": 1,
+      "filterable": 1,
       "ext": {
         "cookie": "",
         "authorization": ""
       },
-      "searchable": 1,
-      "quickSearch": 1,
-      "filterable": 1
+      "yingxia": {
+        "builtin": true,
+        "names": {
+          "en": "Sorani",
+          "zh-Hans": "青空次元",
+          "zh-Hant": "青空次元",
+          "ja": "Sorani"
+        },
+        "symbol": "globe",
+        "account": "sorani",
+        "tmdb": false,
+        "signIn": {
+          "kind": "web",
+          "url": "https://www.sorani.net",
+          "note": {
+            "en": "Sign in to Sorani in the embedded browser, complete its slider verification, then save this device's session.",
+            "zh-Hans": "在内嵌浏览器中登录 Sorani 并完成滑块验证，然后保存本机登录状态。",
+            "zh-Hant": "在內嵌瀏覽器中登入 Sorani 並完成滑塊驗證，然後儲存本機登入狀態。",
+            "ja": "内蔵ブラウザーで Sorani にサインインし、スライダー認証を完了してから、このデバイスにセッションを保存してください。"
+          },
+          "signedIn": {
+            "en": "Sorani session is stored on this Mac and used by this source.",
+            "zh-Hans": "Sorani 登录状态保存在这台 Mac 上，并仅供此订阅源使用。",
+            "zh-Hant": "Sorani 登入狀態儲存在這台 Mac 上，並僅供此訂閱源使用。",
+            "ja": "Sorani のセッションはこの Mac に保存され、このソースでのみ使用されます。"
+          }
+        }
+      }
     }
   ]
 }
