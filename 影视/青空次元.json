@@ -1,0 +1,17 @@
+{
+  "sites": [
+    {
+      "key": "sorani",
+      "name": "Sorani",
+      "type": 3,
+      "api": "./sorani.js",
+      "ext": {
+        "cookie": "",
+        "authorization": ""
+      },
+      "searchable": 1,
+      "quickSearch": 1,
+      "filterable": 1
+    }
+  ]
+}
