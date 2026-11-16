@@ -10,7 +10,8 @@
  *   GET /sorani-cms/api/video/episode/{episodeId}/play
  *
  * Login note: this adapter does not bypass Sorani's interactive slider CAPTCHA.
- * Cookie / Authorization may be supplied manually in a private local copy only.
+ * After the native macOS web-login bridge has saved a session in Keychain, the
+ * host injects ext.soraniCookiesByDomain into this Spider at runtime.
  */
 
 const WEB = "https://www.sorani.net";
@@ -90,11 +91,50 @@ createSoraniSpider.prototype.init = function (ext) {
     try { parsed = JSON.parse(parsed); } catch (_) { parsed = {}; }
   }
   this.ext = parsed && typeof parsed === "object" ? parsed : {};
-  this.cookie = asText(this.ext.cookie || this.ext.Cookie).trim();
-  this.authorization = asText(this.ext.authorization || this.ext.Authorization).trim();
+  this.cookie = asText(
+    this.ext.soraniCookie || this.ext.cookie || this.ext.Cookie
+  ).trim();
+  this.authorization = asText(
+    this.ext.soraniAuthorization || this.ext.authorization || this.ext.Authorization
+  ).trim();
+
+  let cookieMap = this.ext.soraniCookiesByDomain || {};
+  if (typeof cookieMap === "string" && cookieMap.trim()) {
+    try { cookieMap = JSON.parse(cookieMap); } catch (_) { cookieMap = {}; }
+  }
+  this.soraniCookiesByDomain = cookieMap && typeof cookieMap === "object"
+    ? cookieMap : {};
 };
 
-createSoraniSpider.prototype.headers = function (extra) {
+createSoraniSpider.prototype.cookieForURL = function (url) {
+  let host = "";
+  try { host = new URL(url).hostname.toLowerCase(); } catch (_) {}
+  if (!host) return this.cookie;
+
+  // Pick the most-specific saved cookie domain that matches this request host.
+  const domains = Object.keys(this.soraniCookiesByDomain || {}).sort(function (a, b) {
+    return b.length - a.length;
+  });
+  for (let i = 0; i < domains.length; i++) {
+    const domain = domains[i].replace(/^\./, "").toLowerCase();
+    if (host === domain || host.endsWith("." + domain)) {
+      const value = asText(this.soraniCookiesByDomain[domains[i]]).trim();
+      if (value) return value;
+    }
+  }
+
+  // Legacy single-cookie fallback is restricted to Sorani hosts only.
+  const isSoraniHost = host === "sorani.net" || host.endsWith(".sorani.net")
+    || host === "sorani.cc" || host.endsWith(".sorani.cc");
+  return isSoraniHost ? this.cookie : "";
+};
+
+createSoraniSpider.prototype.headers = function (url, extra) {
+  // Keep backward compatibility with callers that used headers(extra).
+  if (url && typeof url === "object") {
+    extra = url;
+    url = "";
+  }
   const headers = {
     "Accept": "application/json, text/plain, */*",
     "Referer": WEB + "/",
@@ -102,8 +142,14 @@ createSoraniSpider.prototype.headers = function (extra) {
     "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
   };
   if (extra) Object.keys(extra).forEach(function (key) { headers[key] = extra[key]; });
-  if (this.cookie) headers.Cookie = this.cookie;
-  if (this.authorization) headers.Authorization = this.authorization;
+  const host = url ? (function (value) {
+    try { return new URL(value).hostname.toLowerCase(); } catch (_) { return ""; }
+  })(url) : "";
+  const isSoraniHost = !host || host === "sorani.net" || host.endsWith(".sorani.net")
+    || host === "sorani.cc" || host.endsWith(".sorani.cc");
+  const cookie = url ? this.cookieForURL(url) : this.cookie;
+  if (cookie) headers.Cookie = cookie;
+  if (this.authorization && isSoraniHost) headers.Authorization = this.authorization;
   return headers;
 };
 
@@ -112,7 +158,7 @@ createSoraniSpider.prototype.requestJson = function (url, options) {
   if (typeof req !== "function") throw new Error("当前 Spider 运行环境没有提供 req() HTTP 接口");
   const response = req(url, {
     method: options.method || "GET",
-    headers: this.headers(options.headers || {}),
+    headers: this.headers(url, options.headers || {}),
     body: options.body,
     timeout: options.timeout || 20000
   });
@@ -225,7 +271,7 @@ createSoraniSpider.prototype.play = function (flag, id, flags) {
   if (!playUrl || !/^https?:\/\//i.test(asText(playUrl))) {
     throw new Error("Sorani 未返回可直接播放的 HTTP 视频地址；可能需要有效登录态或该集暂不可用");
   }
-  return jsonResult({ parse: 0, jx: 0, url: asText(playUrl), header: this.headers() });
+  return jsonResult({ parse: 0, jx: 0, url: asText(playUrl), header: this.headers(playUrl) });
 };
 
 export default createSoraniSpider;
