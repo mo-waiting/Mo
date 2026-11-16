@@ -4,7 +4,7 @@
       "key": "sorani",
       "name": "Sorani",
       "type": 3,
-      "api": "./sorani.js",
+      "api": "https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/影视/sorani.js",
       "ext": {
         "cookie": "",
         "authorization": ""
