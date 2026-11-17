@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""听友听书 CatVod Spider V11（修复 type/cat 分类读取与作者/播音网页回填）"""
+"""听友听书"""
 
 import re
 import json
