@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""听友听书 CatVod Spider（保留网站原始信息，不注入第三方品牌文案）"""
+"""听友听书 CatVod Spider（保留站点原始信息，移除第三方推广内容）"""
 
 import re
 import json
+import html
 import urllib.request
 import urllib.parse
 import http.cookiejar
@@ -104,6 +105,67 @@ class Spider(SpiderBase):
             return False
         t = str(text).lower()
         return any(k in t for k in self.block_kw)
+
+    def _clean_source_text(self, value):
+        """清理第三方 Spider 注入的品牌、引流和推广文案，尽量保留站点原始内容。"""
+        if value is None:
+            return ""
+        text = html.unescape(str(value))
+        text = re.sub(r"(?is)<script\b.*?</script>|<style\b.*?</style>", " ", text)
+        text = re.sub(r"(?i)<br\s*/?>|</p>|</div>|</li>", "\n", text)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = text.replace("\r", "\n").replace("\xa0", " ")
+
+        # 明确的第三方品牌或广告联系方式。
+        explicit_patterns = [
+            # 整段移除带有推广标识的方括号文案，避免留下空括号和表情符号。
+            r"【[^】]*(?:蝴蝶影视|蝴蝶影院|TG群|Telegram|tvshare23|交流群|QQ群|微信群|专线|极速音质|推广|广告|公众号)[^】]*】",
+            r"\[[^\]]*(?:蝴蝶影视|蝴蝶影院|TG群|Telegram|tvshare23|交流群|QQ群|微信群|专线|极速音质|推广|广告|公众号)[^\]]*\]",
+            r"蝴蝶影视", r"蝴蝶影院", r"@tvshare23", r"tvshare23",
+            r"🦋?\s*(?:TG|Telegram)\s*(?:群|频道|交流群)?\s*[:：]?\s*@?[\w.-]+",
+            r"(?:官方)?交流群\s*[:：：]?\s*[^。！？\n]*",
+            r"(?:QQ群|微信群|粉丝群)\s*[:：：]?\s*[^。！？\n]*",
+            r"听书专线加速播放", r"专线加速播放", r"极速音质",
+            r"专线加速", r"广告合作", r"商务合作", r"推广信息",
+            r"扫码关注", r"关注公众号", r"关注我们", r"添加客服", r"客服微信",
+            r"获取更多资源[^。！？\n]*", r"更多资源[^。！？\n]*",
+            r"更多精彩(?:内容)?[^。！？\n]*", r"下载(?:我们的)?APP[^。！？\n]*",
+            r"(?:加群|进群|入群)\s*[:：]?\s*[^。！？\n]*",
+            r"_免费听书", r"\|免费", r"免费收听",
+        ]
+        for pattern in explicit_patterns:
+            text = re.sub(pattern, " ", text, flags=re.I)
+
+        # 按句子和行清理明显的引流/广告语；不对普通剧情文本做宽泛删词。
+        promo_markers = (
+            "蝴蝶影视", "蝴蝶影院", "@tvshare23", "tvshare23", "tg群", "telegram群",
+            "官方交流群", "加入交流群", "加入群聊", "扫码进群", "扫码加群",
+            "专线加速", "极速音质", "广告合作", "推广信息", "关注公众号",
+            "关注我们", "获取更多资源", "更多资源", "更多精彩", "添加客服",
+            "客服微信", "商务合作", "资源群", "看片群", "下载app",
+        )
+        chunks = re.split(r"(?<=[。！？!?])|\n+", text)
+        kept = []
+        for chunk in chunks:
+            part = chunk.strip(" \t\n|｜·•-—:：")
+            if not part or re.fullmatch(r"[\W_]+", part, flags=re.UNICODE):
+                continue
+            lowered = part.lower()
+            if any(marker in lowered for marker in promo_markers):
+                continue
+            kept.append(part)
+        text = " ".join(kept)
+
+        # 收敛空白及残留分隔符。
+        text = re.sub(r"[ \t]{2,}", " ", text)
+        text = re.sub(r"\s*([，。；：！？])\s*", r"\1", text)
+        text = re.sub(r"[|｜·•]+", " ", text)
+        text = text.strip(" \t\n-—:：")
+
+        # 站点有时会在简介开头加“介绍：/简介：”标签；
+        # 清理推广段落后去掉这个纯格式标签，保留后面的原始剧情简介。
+        text = re.sub(r"^(?:介绍|简介|内容介绍)\s*[:：]?\s*", "", text)
+        return text.strip(" \t\n-—:：")
 
     def _pic(self, url):
         if not url:
@@ -290,7 +352,7 @@ class Spider(SpiderBase):
             for it in data.get("data") or []:
                 if not isinstance(it, dict):
                     continue
-                name = str(it.get("title") or "").strip()
+                name = self._clean_source_text(it.get("title"))
                 if not name or self._blocked(name):
                     continue
                 vid = str(it.get("id") or "")
@@ -327,16 +389,16 @@ class Spider(SpiderBase):
         if not isinstance(album, dict) or not album.get("id"):
             return {"list": []}
 
-        title = str(album.get("title") or "").strip()
+        title = self._clean_source_text(album.get("title"))
         if self._blocked(title):
             return {"list": []}
 
-        author = str(album.get("author") or "").strip()
-        teller = str(album.get("teller") or "").strip()
+        author = self._clean_source_text(album.get("author"))
+        teller = self._clean_source_text(album.get("teller"))
         pic = str(album.get("cover_url") or "")
-        synopsis = str(album.get("synopsis") or "").strip()
-        typ = str(album.get("type") or "")
-        cat = str(album.get("cat") or "")
+        synopsis = self._clean_source_text(album.get("synopsis"))
+        typ = self._clean_source_text(album.get("type"))
+        cat = self._clean_source_text(album.get("cat"))
         cnt = album.get("count") or 0
         try:
             total_count = int(cnt)
@@ -352,7 +414,7 @@ class Spider(SpiderBase):
         if chapters:
             for ch in chapters:
                 idx = ch.get("index") or 0
-                ctitle = str(ch.get("title") or ("第%s集" % idx)).strip()
+                ctitle = self._clean_source_text(ch.get("title") or ("第%s集" % idx))
                 clean_ctitle = re.sub(r"[\$\#\r\n\t]+", " ", ctitle).strip()
                 if not clean_ctitle:
                     clean_ctitle = "第%s集" % idx
@@ -371,7 +433,7 @@ class Spider(SpiderBase):
 
         # 仅采用 API 中真实返回的简介、演员/播讲人和导演字段。
         # 如果 API 没有导演字段，则保持空值，不虚构导演署名。
-        director = str(album.get("director") or "").strip()
+        director = self._clean_source_text(album.get("director"))
         remarks_meta = (status_txt + (" · %s集" % total_count if total_count else "")).strip(" ·")
 
         vod = {
@@ -380,7 +442,7 @@ class Spider(SpiderBase):
             "vod_pic": self._pic(pic),
             "type_name": type_name[:40],
             "vod_remarks": remarks_meta,
-            "vod_actor": actor[:80] if actor else "",
+            "vod_actor": self._clean_source_text(actor)[:80] if actor else "",
             "vod_director": director,
             "vod_content": synopsis,
             "vod_play_from": "默认线路",
@@ -404,7 +466,7 @@ class Spider(SpiderBase):
                     continue
                 chs.append({
                     "id": c.get("id"), "index": idx,
-                    "title": str(c.get("title") or ("第%s集" % idx)),
+                    "title": self._clean_source_text(c.get("title") or ("第%s集" % idx)),
                     "duration": c.get("duration") or 0,
                 })
         chs.sort(key=lambda x: x["index"])
@@ -425,7 +487,7 @@ class Spider(SpiderBase):
             for it in data.get("results") or data.get("data") or []:
                 if not isinstance(it, dict):
                     continue
-                name = str(it.get("title") or "").strip()
+                name = self._clean_source_text(it.get("title"))
                 if not name or self._blocked(name):
                     continue
                 vid = str(it.get("id") or "")
