@@ -4,15 +4,10 @@
 
 本包以用户提供的映匣音乐解析模块（`default.init / default.play`）为接口基准，将 `pdone/lx-music-source` 中健康报告标记为“可用”、且当前 `latest.js` 确实带有 `musicUrl` 事件处理器的音源，适配为映匣 `yingxiaMusic` 播放渠道。
 
-本包**不注册映匣原来的内置播放渠道**（咪咕、念心、VKeys、GD音乐台、官方星海、官方 HYW 等）。新的播放渠道 ID 全部来自洛雪音源仓库。
-
 ## 文件
 
 - `js/music-lx-adapter.js`：映匣统一音乐解析入口。
-- `yingxiaMusic-config.json`：仅含 `yingxiaMusic` 属性，供合并到你现有的订阅 JSON。
-- `subscription-sample.json`：最小独立示例，不包含你现有影视源。
-- `source-availability.json`：仓库可用性快照与未启用原因。
-- `tests/smoke-test.mjs`：本地模拟测试。
+- `yingxiaMusic-config.json`：为了可以添加加入了哔哩哔哩，含 `yingxiaMusic` 属性，供合并到你现有的订阅 JSON。
 
 ## 接入步骤
 
@@ -52,15 +47,6 @@
 
 `order` 前 6 条为主要渠道，后续条目作为备用次序。可在 `yingxiaMusic-config.json` 中调整渠道优先级。
 
-## 为什么不是 13 个全部启用
-
-健康报告（`health-status` 分支，2026-11-16 01:07）中有 13 个标记“可用”。但是逐个检查仓库当前 `latest.js` 后发现：
-
-- `changqing/latest.js` 只有头部元数据和 `@update_url`，没有 `on(EVENT_NAMES.request, ...)` 播放处理器。
-- `fish/latest.js` 只有头部元数据，没有播放处理器。
-- `lx/latest.js` 只有 `SERVER_SCRIPT_CONFIG`，没有播放处理器。
-
-因此这 3 个不能作为可调用播放渠道注册。外部 ChangQing 更新配置地址未能核实为可直接执行的 LX JS，本包没有猜测接口或伪造空渠道。其余 10 个有实际 `musicUrl` handler 的源已加入。
 
 健康报告的“可用”只表示探测到上游主机 HTTP 可达，不代表每个平台、每首歌、每种音质都验证过播放。详见 `source-availability.json`。
 
