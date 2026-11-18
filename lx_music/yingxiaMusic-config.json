@@ -1,4 +1,65 @@
 {
+  "yingxia": {
+    "version": 1,
+    "kind": "built-in sources"
+  },
+  "sites": [
+    {
+      "key": "builtin.bilibili",
+      "name": "Bilibili",
+      "type": 3,
+      "api": "https://bright-harbor.pages.dev/v1/js/bili.b6b480fcd1126af7.js",
+      "searchable": 1,
+      "quickSearch": 1,
+      "filterable": 1,
+      "ext": {
+        "builtin": true
+      },
+      "yingxia": {
+        "builtin": true,
+        "names": {
+          "en": "Bilibili",
+          "zh-Hans": "哔哩哔哩",
+          "zh-Hant": "嗶哩嗶哩",
+          "ja": "ビリビリ"
+        },
+        "account": "bilibili",
+        "mark": "bilibili",
+        "danmaku": true,
+        "tmdb": false
+      }
+    }
+  ],
+  "lives": [
+    {
+      "name": "Bilibili Live",
+      "names": {
+        "en": "Bilibili Live",
+        "zh-Hans": "哔哩哔哩直播",
+        "zh-Hant": "嗶哩嗶哩直播",
+        "ja": "ビリビリ生配信"
+      },
+      "url": "bilibili-live://rooms"
+    }
+  ],
+  "yingxiaLive": [
+    {
+      "id": "bilibili",
+      "scheme": "bilibili-live",
+      "api": "https://bright-harbor.pages.dev/v1/js/live-bilibili.8fb2a40f9d6f99fc.js",
+      "name": "Bilibili Live",
+      "names": {
+        "en": "Bilibili Live",
+        "zh-Hans": "哔哩哔哩直播",
+        "zh-Hant": "嗶哩嗶哩直播",
+        "ja": "ビリビリ生配信"
+      },
+      "tint": "#FA7399",
+      "mark": "bilibili",
+      "account": "bilibili",
+      "chat": "bilibili"
+    }
+  ],
   "yingxiaMusic": {
     "api": "./js/music-lx-adapter.js",
     "channels": [
