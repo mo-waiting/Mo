@@ -165,7 +165,7 @@ async function ensureWasm(domain = DEFAULT_DOMAIN) {
     const wasmRes = request(WASM_URL, { buffer: 1, timeout: 30000, headers: { 'Accept': '*/*' } });
     const wasmBytes = new Uint8Array(wasmRes.content || []);
     if (wasmBytes.length < 10000 || wasmBytes[0] !== 0 || wasmBytes[1] !== 97 || wasmBytes[2] !== 115 || wasmBytes[3] !== 109) {
-      throw new Error('下载的五洲派 WASM 文件无效');
+      throw new Error('下载的wuzhoupai WASM 文件无效');
     }
     const go = new globalThis.Go();
     // The Wuzhou page suppresses this optional Go runtime hook as well.
@@ -180,7 +180,7 @@ async function ensureWasm(domain = DEFAULT_DOMAIN) {
       await new Promise(resolve => setTimeout(resolve, 25));
     }
     if (typeof globalThis.hxm_encrypt !== 'function' || typeof globalThis.hxm_decrypt !== 'function') {
-      throw new Error('五洲派 WASM 已实例化，但没有注册 hxm_encrypt/hxm_decrypt');
+      throw new Error('wuzhoupai WASM 已实例化，但没有注册 hxm_encrypt/hxm_decrypt');
     }
     wasmReady = true;
     log('Wuzhou WASM ready', 'bytes=' + wasmBytes.length, 'domain=' + domain);
@@ -210,8 +210,8 @@ function parseWuzhouConfig(playerHtml, playerUrl) {
   const contentId = readMetaId(playerHtml, 'meta[http-equiv="Content-Type"]', 'id');
   const viewportId = readMetaId(playerHtml, 'meta[name="viewport"]', 'id');
   const vurl = readAssigned(playerHtml, 'Vurl');
-  if (!contentId || !viewportId) throw new Error('五洲派播放器页面缺少 Code=10 所需 Meta ID');
-  if (!vurl) throw new Error('没有从五洲派播放器 HTML 中提取 Vurl；该变量可能由页面脚本动态计算');
+  if (!contentId || !viewportId) throw new Error('wuzhoupai播放器页面缺少 Code=10 所需 Meta ID');
+  if (!vurl) throw new Error('没有从wuzhoupai播放器 HTML 中提取 Vurl；该变量可能由页面脚本动态计算');
   const timeText = readAssigned(playerHtml, 'Time') || String(Math.floor(Date.now() / 1000));
   return {
     metaContentId: contentId,
@@ -227,7 +227,7 @@ function parseWuzhouConfig(playerHtml, playerUrl) {
   };
 }
 function parseApiResponse(apiResponse, config, domain) {
-  if (String(apiResponse.Status) !== '1') throw new Error('五洲派 API Status=' + apiResponse.Status + ': ' + String(apiResponse.Data || '').slice(0, 120));
+  if (String(apiResponse.Status) !== '1') throw new Error('wuzhoupai API Status=' + apiResponse.Status + ': ' + String(apiResponse.Data || '').slice(0, 120));
   const code = String(apiResponse.Code || '');
   const appkey = String(apiResponse.Appkey || '');
   const version = String(apiResponse.Version || config.version || DEFAULT_VERSION);
@@ -236,7 +236,7 @@ function parseApiResponse(apiResponse, config, domain) {
   const seed = code === '10' ? code + joinedMeta + appkey + version : code + appkey + version;
   const info = aesCbcDecrypt(data, seed);
   let mediaUrl = String(info.url || '');
-  if (!mediaUrl) throw new Error('五洲派 API 解密 JSON 没有 url 字段');
+  if (!mediaUrl) throw new Error('wuzhoupai API 解密 JSON 没有 url 字段');
   if (code === '10') {
     globalThis.Domain = domain;
     const encoded = globalThis.hxm_decrypt(mediaUrl);
@@ -281,11 +281,107 @@ function resolveApi(config, playerUrl) {
   const response = request(apiUrl, { method: 'POST', headers, body, timeout: 25000 });
   let json;
   try { json = JSON.parse(response.content); }
-  catch (_) { throw new Error('五洲派 Api.php 没有返回 JSON: ' + String(response.content || '').slice(0, 200)); }
+  catch (_) { throw new Error('wuzhoupai Api.php 没有返回 JSON: ' + String(response.content || '').slice(0, 200)); }
   const info = parseApiResponse(json, config, config.host || DEFAULT_DOMAIN);
   info.requestTime = payload.time;
   info.timeFallback = !readAssigned(config.__html || '', 'Time');
   return info;
+}
+
+const CATALOG_REGIONS = {
+  jp: { name: '日本', value: '日本' },
+  cn: { name: '中国', value: '中国' },
+  western: { name: '欧美', value: '欧美' }
+};
+
+const CATALOG_FILTER_SPECS = [
+  { key: 'type', name: '类型', segment: 0, fallback: [{ n: 'TV', v: 'TV' }] },
+  { key: 'year', name: '年份', segment: 1, fallback: [{ n: '2026', v: '2026' }] },
+  { key: 'quarter', name: '季度', segment: 8, fallback: [
+    { n: '第1季度', v: '1' }, { n: '第2季度', v: '2' },
+    { n: '第3季度', v: '3' }, { n: '第4季度', v: '4' }
+  ] },
+  { key: 'status', name: '状态', segment: 9, fallback: [
+    { n: '连载', v: '连载' }, { n: '完结', v: '完结' }
+  ] },
+  { key: 'sort', name: '排序', segment: 5, fallback: [
+    { n: '时间排序', v: 'time' }, { n: '点击量', v: '点击量' }
+  ] }
+];
+
+function decodeHtmlEntities(value) {
+  return String(value || '')
+    .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
+}
+function safeDecodeURIComponent(value) {
+  try { return decodeURIComponent(String(value || '')); } catch (_) { return String(value || ''); }
+}
+function catalogOptionsFromHtml(html, segmentIndex) {
+  const found = new Map();
+  const source = String(html || '');
+  const anchorRe = /<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+  while ((match = anchorRe.exec(source))) {
+    const href = decodeHtmlEntities(match[2]);
+    const marker = href.indexOf('catalog/');
+    if (marker < 0) continue;
+    const pathPart = href.slice(marker + 'catalog/'.length).split(/[?#]/, 1)[0];
+    const segments = pathPart.split('/')[0].split('-');
+    if (segments.length <= segmentIndex) continue;
+    const value = safeDecodeURIComponent(segments[segmentIndex] || '');
+    if (!value || value.toLowerCase() === 'all' || found.has(value)) continue;
+    const label = decodeHtmlEntities(match[3].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || value;
+    found.set(value, { n: label, v: value });
+    if (found.size >= 100) break;
+  }
+  return Array.from(found.values());
+}
+function catalogFiltersFromHtml(html) {
+  const filters = [];
+  for (const spec of CATALOG_FILTER_SPECS) {
+    const options = [{ n: '全部', v: 'all' }];
+    const seen = new Set(['all']);
+    const discovered = catalogOptionsFromHtml(html, spec.segment);
+    for (const option of discovered.concat(spec.fallback)) {
+      const value = String(option.v || '').trim();
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      options.push({ n: String(option.n || value), v: value });
+    }
+    filters.push({ key: spec.key, name: spec.name, init: 'all', value: options });
+  }
+  return filters;
+}
+function getExtendValue(extend, key, aliases, fallback) {
+  if (!extend || typeof extend !== 'object') return fallback;
+  const names = [key].concat(aliases || []);
+  for (const name of names) {
+    const value = extend[name];
+    if (value !== undefined && value !== null && String(value).trim() !== '') return String(value).trim();
+  }
+  return fallback;
+}
+function catalogPageUrl(regionValue, pageNo, extend) {
+  const type = getExtendValue(extend, 'type', ['类型'], 'all');
+  const year = getExtendValue(extend, 'year', ['年份'], 'all');
+  const quarter = getExtendValue(extend, 'quarter', ['季度'], 'all');
+  const status = getExtendValue(extend, 'status', ['状态'], 'all');
+  const sort = getExtendValue(extend, 'sort', ['排序'], 'time');
+  // AGE /catalog uses ten ordered fields. Letter, genre and resource remain unrestricted.
+  const segments = [type, year, 'all', 'all', 'all', sort, String(pageNo), regionValue, quarter, status];
+  return SITE + 'catalog/' + segments.map(value => encodeURIComponent(value)).join('-');
+}
+function updateListResult(pageNo) {
+  let url = SITE + 'update';
+  if (pageNo > 1) url += '?page=' + pageNo;
+  const page = request(url, { headers: { 'Referer': SITE } });
+  let fragments = manyOf(page.content, '.video_item');
+  if (!fragments.length) fragments = manyOf(page.content, 'div.video_list_box.recent_update .video_item');
+  const list = fragments.map(fragment => cardFromHtml(fragment, page.url || url)).filter(Boolean);
+  return JSON.stringify({ list, page: pageNo, pagecount: pageNo + (list.length >= 24 ? 1 : 0), limit: 24, total: (pageNo - 1) * 24 + list.length });
 }
 
 function spiderErrorResult(error) {
@@ -305,24 +401,46 @@ const spider = {
   },
 
   async home(filter) {
-    return JSON.stringify({ class: [{ type_id: 'update', type_name: '最近更新' }] });
+    // Fetch the directory once so the filter choices can mirror the options exposed by AGE.
+    let filterHtml = '';
+    try {
+      const page = request(SITE + 'catalog/all-all-all-all-all-time-1-all-all-all', { headers: { 'Referer': SITE } });
+      filterHtml = page.content || '';
+    } catch (e) {
+      log('Catalog filter discovery failed; using verified fallback choices:', e && e.message || e);
+    }
+    const regionFilters = catalogFiltersFromHtml(filterHtml);
+    const filters = {
+      jp: regionFilters,
+      cn: regionFilters,
+      western: regionFilters
+    };
+    return JSON.stringify({
+      class: [
+        { type_id: 'update', type_name: '最近更新' },
+        { type_id: 'jp', type_name: '日本' },
+        { type_id: 'cn', type_name: '中国' },
+        { type_id: 'western', type_name: '欧美' }
+      ],
+      filters
+    });
   },
 
   async homeVod() {
-    const url = SITE;
-    const page = request(url, { headers: { 'Referer': SITE } });
-    const list = cardsFromHtml(page.content, 'div.video_list_box.recommend_list > div.video_list_box--bd > div > div', page.url || url);
-    return JSON.stringify({ list });
+    // The recommendation shelf in Yingxia is intentionally based on AGE's recent-update list.
+    return updateListResult(1);
   },
 
   async category(tid, pg, filter, extend) {
     const pageNo = Math.max(1, Number(pg || 1) || 1);
-    if (String(tid) !== 'update') return JSON.stringify({ list: [], page: pageNo, pagecount: 1, limit: 24, total: 0 });
-    let url = SITE + 'update';
-    if (pageNo > 1) url += '?page=' + pageNo;
+    const categoryId = String(tid || '');
+    if (categoryId === 'update') return updateListResult(pageNo);
+    const region = CATALOG_REGIONS[categoryId];
+    if (!region) return JSON.stringify({ list: [], page: pageNo, pagecount: 1, limit: 24, total: 0 });
+    const url = catalogPageUrl(region.value, pageNo, extend || {});
     const page = request(url, { headers: { 'Referer': SITE } });
     let fragments = manyOf(page.content, '.video_item');
-    if (!fragments.length) fragments = manyOf(page.content, 'div.video_list_box.recent_update .video_item');
+    if (!fragments.length) fragments = manyOf(page.content, 'div.video_list_box .video_item');
     const list = fragments.map(fragment => cardFromHtml(fragment, page.url || url)).filter(Boolean);
     return JSON.stringify({ list, page: pageNo, pagecount: pageNo + (list.length >= 24 ? 1 : 0), limit: 24, total: (pageNo - 1) * 24 + list.length });
   },
@@ -391,7 +509,7 @@ const spider = {
       if (!playerSrc) throw new Error('AGE 单集页面没有找到 iframe#iframeForVideo[src]');
       const playerUrl = absolute(playerSrc, agePage.url || playPageUrl);
       const pu = new URL(playerUrl);
-      if (pu.hostname !== 'jx.wuzhoupai.com') throw new Error('AGE iframe 不是已分析的五洲派播放器: ' + pu.hostname);
+      if (pu.hostname !== 'jx.wuzhoupai.com') throw new Error('AGE iframe 不是已分析的wuzhoupai播放器: ' + pu.hostname);
       const playerPage = request(playerUrl, { headers: { 'Referer': playPageUrl, 'Accept': 'text/html,*/*;q=0.8' } });
       const config = parseWuzhouConfig(playerPage.content, playerPage.url || playerUrl);
       const hostname = new URL(playerUrl).hostname;
@@ -400,10 +518,10 @@ const spider = {
       config.__html = playerPage.content;
       const info = resolveApi(config, playerUrl);
       if (String(info.type || '').toLowerCase() === 'url') {
-        throw new Error('五洲派 API 返回的是二级播放器页面，不是单一媒体地址: ' + info.url);
+        throw new Error('wuzhoupai API 返回的是二级播放器页面，不是单一媒体地址: ' + info.url);
       }
       const mediaUrl = String(info.url || '');
-      if (!/^https?:\/\//i.test(mediaUrl)) throw new Error('五洲派没有返回有效媒体 URL');
+      if (!/^https?:\/\//i.test(mediaUrl)) throw new Error('wuzhoupai没有返回有效媒体 URL');
       lastError = '';
       log('Resolved media', info.type || 'unknown', new URL(mediaUrl).hostname);
       return JSON.stringify({
