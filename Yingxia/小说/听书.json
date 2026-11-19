@@ -4,7 +4,7 @@
       "key": "tingyou",
       "name": "听友FM",
       "type": 3,
-      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/小说/听友听书.py",
+      "api": "https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/小说/听友听书.py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
