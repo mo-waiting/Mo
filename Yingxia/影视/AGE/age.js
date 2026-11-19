@@ -165,7 +165,7 @@ async function ensureWasm(domain = DEFAULT_DOMAIN) {
     const wasmRes = request(WASM_URL, { buffer: 1, timeout: 30000, headers: { 'Accept': '*/*' } });
     const wasmBytes = new Uint8Array(wasmRes.content || []);
     if (wasmBytes.length < 10000 || wasmBytes[0] !== 0 || wasmBytes[1] !== 97 || wasmBytes[2] !== 115 || wasmBytes[3] !== 109) {
-      throw new Error('下载的age WASM 文件无效');
+      throw new Error('下载的五洲派 WASM 文件无效');
     }
     const go = new globalThis.Go();
     // The Wuzhou page suppresses this optional Go runtime hook as well.
@@ -180,7 +180,7 @@ async function ensureWasm(domain = DEFAULT_DOMAIN) {
       await new Promise(resolve => setTimeout(resolve, 25));
     }
     if (typeof globalThis.hxm_encrypt !== 'function' || typeof globalThis.hxm_decrypt !== 'function') {
-      throw new Error('age WASM 已实例化，但没有注册 hxm_encrypt/hxm_decrypt');
+      throw new Error('五洲派 WASM 已实例化，但没有注册 hxm_encrypt/hxm_decrypt');
     }
     wasmReady = true;
     log('Wuzhou WASM ready', 'bytes=' + wasmBytes.length, 'domain=' + domain);
@@ -210,8 +210,8 @@ function parseWuzhouConfig(playerHtml, playerUrl) {
   const contentId = readMetaId(playerHtml, 'meta[http-equiv="Content-Type"]', 'id');
   const viewportId = readMetaId(playerHtml, 'meta[name="viewport"]', 'id');
   const vurl = readAssigned(playerHtml, 'Vurl');
-  if (!contentId || !viewportId) throw new Error('age播放器页面缺少 Code=10 所需 Meta ID');
-  if (!vurl) throw new Error('没有从age播放器 HTML 中提取 Vurl；该变量可能由页面脚本动态计算');
+  if (!contentId || !viewportId) throw new Error('五洲派播放器页面缺少 Code=10 所需 Meta ID');
+  if (!vurl) throw new Error('没有从五洲派播放器 HTML 中提取 Vurl；该变量可能由页面脚本动态计算');
   const timeText = readAssigned(playerHtml, 'Time') || String(Math.floor(Date.now() / 1000));
   return {
     metaContentId: contentId,
@@ -227,7 +227,7 @@ function parseWuzhouConfig(playerHtml, playerUrl) {
   };
 }
 function parseApiResponse(apiResponse, config, domain) {
-  if (String(apiResponse.Status) !== '1') throw new Error('age API Status=' + apiResponse.Status + ': ' + String(apiResponse.Data || '').slice(0, 120));
+  if (String(apiResponse.Status) !== '1') throw new Error('五洲派 API Status=' + apiResponse.Status + ': ' + String(apiResponse.Data || '').slice(0, 120));
   const code = String(apiResponse.Code || '');
   const appkey = String(apiResponse.Appkey || '');
   const version = String(apiResponse.Version || config.version || DEFAULT_VERSION);
@@ -236,7 +236,7 @@ function parseApiResponse(apiResponse, config, domain) {
   const seed = code === '10' ? code + joinedMeta + appkey + version : code + appkey + version;
   const info = aesCbcDecrypt(data, seed);
   let mediaUrl = String(info.url || '');
-  if (!mediaUrl) throw new Error('age API 解密 JSON 没有 url 字段');
+  if (!mediaUrl) throw new Error('五洲派 API 解密 JSON 没有 url 字段');
   if (code === '10') {
     globalThis.Domain = domain;
     const encoded = globalThis.hxm_decrypt(mediaUrl);
@@ -281,7 +281,7 @@ function resolveApi(config, playerUrl) {
   const response = request(apiUrl, { method: 'POST', headers, body, timeout: 25000 });
   let json;
   try { json = JSON.parse(response.content); }
-  catch (_) { throw new Error('age Api.php 没有返回 JSON: ' + String(response.content || '').slice(0, 200)); }
+  catch (_) { throw new Error('五洲派 Api.php 没有返回 JSON: ' + String(response.content || '').slice(0, 200)); }
   const info = parseApiResponse(json, config, config.host || DEFAULT_DOMAIN);
   info.requestTime = payload.time;
   info.timeFallback = !readAssigned(config.__html || '', 'Time');
@@ -295,6 +295,112 @@ function spiderErrorResult(error) {
   return JSON.stringify({ parse: 1, jx: 0, url: '', error: message, header: { 'User-Agent': UA } });
 }
 
+// AGE catalog filters and list helpers. Kept separate from the v1 detail/play resolver.
+const AGE_REGIONS = {
+  japan: '日本',
+  china: '中国',
+  western: '欧美'
+};
+
+function ageFilterOptions() {
+  const typeValues = [
+    { n: '全部', v: 'all' },
+    { n: 'TV', v: 'TV' },
+    { n: '剧场版', v: '剧场版' },
+    { n: 'OVA', v: 'OVA' }
+  ];
+  const yearValues = [{ n: '全部', v: 'all' }];
+  for (let year = 2026; year >= 2001; year--) {
+    yearValues.push({ n: String(year), v: String(year) });
+  }
+  // AGE uses 2000 as the directory value for the "2000以前" option.
+  yearValues.push({ n: '2000以前', v: '2000' });
+  const quarterValues = [
+    { n: '全部', v: 'all' },
+    { n: '第一季度', v: '1' },
+    { n: '第二季度', v: '2' },
+    { n: '第三季度', v: '3' },
+    { n: '第四季度', v: '4' }
+  ];
+  const statusValues = [
+    { n: '全部', v: 'all' },
+    { n: '连载', v: '连载' },
+    { n: '完结', v: '完结' }
+  ];
+  const sortValues = [
+    { n: '时间', v: 'time' },
+    { n: '热度', v: '点击量' }
+  ];
+  return [
+    { key: 'type', name: '类型', init: '全部', value: typeValues },
+    { key: 'year', name: '年份', init: '全部', value: yearValues },
+    { key: 'quarter', name: '季度', init: '全部', value: quarterValues },
+    { key: 'status', name: '状态', init: '全部', value: statusValues },
+    { key: 'sort', name: '排序', init: '时间', value: sortValues }
+  ];
+}
+
+function selectedFilter(extend, key, allowed, fallback) {
+  const raw = extend && Object.prototype.hasOwnProperty.call(extend, key) ? extend[key] : fallback;
+  const value = String(raw == null || raw === '' ? fallback : raw).trim();
+  return allowed.includes(value) ? value : fallback;
+}
+
+function catalogUrl(region, pageNo, extend) {
+  const type = selectedFilter(extend, 'type', ['all', 'TV', '剧场版', 'OVA'], 'all');
+  const years = ['all'];
+  for (let year = 2026; year >= 2001; year--) years.push(String(year));
+  years.push('2000');
+  const year = selectedFilter(extend, 'year', years, 'all');
+  const quarter = selectedFilter(extend, 'quarter', ['all', '1', '2', '3', '4'], 'all');
+  const status = selectedFilter(extend, 'status', ['all', '连载', '完结'], 'all');
+  const sort = selectedFilter(extend, 'sort', ['time', '点击量'], 'time');
+  // AGE's ten URL segments: type-year-letter-theme-resource-sort-page-region-quarter-status.
+  // Letter, theme and resource stay at "all"; region is determined by the selected category.
+  const segments = [type, year, 'all', 'all', 'all', sort, String(pageNo), region, quarter, status];
+  return SITE + 'catalog/' + segments.map(value => encodeURIComponent(value)).join('-');
+}
+
+function cardsFromCatalog(html, base) {
+  const selectors = [
+    '#cata_video_list .video_item',
+    '#cata_video_list .video_cover',
+    '#cata_video_list > div',
+    '.video_item',
+    '.video_cover',
+    '.video_list_box--bd .video_item',
+    '.video_list_box .video_item'
+  ];
+  const out = [], seen = new Set();
+  let matchedSelector = '';
+  for (const selector of selectors) {
+    const fragments = manyOf(html, selector);
+    if (!fragments.length) continue;
+    const before = out.length;
+    for (const fragment of fragments) {
+      const item = cardFromHtml(fragment, base);
+      if (item && !seen.has(item.vod_id)) {
+        seen.add(item.vod_id);
+        out.push(item);
+      }
+    }
+    if (out.length > before) matchedSelector = selector;
+    if (out.length) break;
+  }
+  log('Catalog parser', matchedSelector || 'no selector matched', 'cards=' + out.length);
+  return out;
+}
+
+function pageResult(list, pageNo, limit) {
+  return JSON.stringify({
+    list,
+    page: pageNo,
+    pagecount: pageNo + (list.length >= limit ? 1 : 0),
+    limit,
+    total: (pageNo - 1) * limit + list.length
+  });
+}
+
 const spider = {
   async init(ext) {
     this.ext = ext || {};
@@ -305,7 +411,16 @@ const spider = {
   },
 
   async home(filter) {
-    return JSON.stringify({ class: [{ type_id: 'update', type_name: '最近更新' }] });
+    const classes = [
+      { type_id: 'today', type_name: '今日推荐' },
+      { type_id: 'update', type_name: '最新更新' },
+      { type_id: 'japan', type_name: '日本' },
+      { type_id: 'china', type_name: '中国' },
+      { type_id: 'western', type_name: '欧美' }
+    ];
+    const filters = {};
+    for (const id of Object.keys(AGE_REGIONS)) filters[id] = ageFilterOptions();
+    return JSON.stringify({ class: classes, filters });
   },
 
   async homeVod() {
@@ -317,14 +432,38 @@ const spider = {
 
   async category(tid, pg, filter, extend) {
     const pageNo = Math.max(1, Number(pg || 1) || 1);
-    if (String(tid) !== 'update') return JSON.stringify({ list: [], page: pageNo, pagecount: 1, limit: 24, total: 0 });
-    let url = SITE + 'update';
-    if (pageNo > 1) url += '?page=' + pageNo;
-    const page = request(url, { headers: { 'Referer': SITE } });
-    let fragments = manyOf(page.content, '.video_item');
-    if (!fragments.length) fragments = manyOf(page.content, 'div.video_list_box.recent_update .video_item');
-    const list = fragments.map(fragment => cardFromHtml(fragment, page.url || url)).filter(Boolean);
-    return JSON.stringify({ list, page: pageNo, pagecount: pageNo + (list.length >= 24 ? 1 : 0), limit: 24, total: (pageNo - 1) * 24 + list.length });
+    const categoryId = String(tid || '');
+
+    if (categoryId === 'today') {
+      const url = SITE;
+      const page = request(url, { headers: { 'Referer': SITE } });
+      const list = cardsFromHtml(page.content, 'div.video_list_box.recommend_list > div.video_list_box--bd > div > div', page.url || url);
+      return pageResult(list, pageNo, 24);
+    }
+
+    if (categoryId === 'update') {
+      let url = SITE + 'update';
+      if (pageNo > 1) url += '?page=' + pageNo;
+      const page = request(url, { headers: { 'Referer': SITE } });
+      let fragments = manyOf(page.content, '.video_item');
+      if (!fragments.length) fragments = manyOf(page.content, 'div.video_list_box.recent_update .video_item');
+      const list = fragments.map(fragment => cardFromHtml(fragment, page.url || url)).filter(Boolean);
+      return pageResult(list, pageNo, 24);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(AGE_REGIONS, categoryId)) {
+      const region = AGE_REGIONS[categoryId];
+      const url = catalogUrl(region, pageNo, extend || {});
+      log('Catalog request', categoryId, url);
+      const page = request(url, { headers: { 'Referer': SITE, 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' } });
+      const list = cardsFromCatalog(page.content, page.url || url);
+      if (!list.length) {
+        log('Catalog returned no cards', 'status=' + String(page.code || ''), 'htmlLength=' + String(page.content || '').length, 'url=' + url);
+      }
+      return pageResult(list, pageNo, 24);
+    }
+
+    return JSON.stringify({ list: [], page: pageNo, pagecount: 1, limit: 24, total: 0 });
   },
 
   async search(key, quick, pg) {
@@ -391,7 +530,7 @@ const spider = {
       if (!playerSrc) throw new Error('AGE 单集页面没有找到 iframe#iframeForVideo[src]');
       const playerUrl = absolute(playerSrc, agePage.url || playPageUrl);
       const pu = new URL(playerUrl);
-      if (pu.hostname !== 'jx.wuzhoupai.com') throw new Error('AGE iframe 不是已分析的age播放器: ' + pu.hostname);
+      if (pu.hostname !== 'jx.wuzhoupai.com') throw new Error('AGE iframe 不是已分析的五洲派播放器: ' + pu.hostname);
       const playerPage = request(playerUrl, { headers: { 'Referer': playPageUrl, 'Accept': 'text/html,*/*;q=0.8' } });
       const config = parseWuzhouConfig(playerPage.content, playerPage.url || playerUrl);
       const hostname = new URL(playerUrl).hostname;
@@ -400,10 +539,10 @@ const spider = {
       config.__html = playerPage.content;
       const info = resolveApi(config, playerUrl);
       if (String(info.type || '').toLowerCase() === 'url') {
-        throw new Error('age API 返回的是二级播放器页面，不是单一媒体地址: ' + info.url);
+        throw new Error('五洲派 API 返回的是二级播放器页面，不是单一媒体地址: ' + info.url);
       }
       const mediaUrl = String(info.url || '');
-      if (!/^https?:\/\//i.test(mediaUrl)) throw new Error('age没有返回有效媒体 URL');
+      if (!/^https?:\/\//i.test(mediaUrl)) throw new Error('五洲派没有返回有效媒体 URL');
       lastError = '';
       log('Resolved media', info.type || 'unknown', new URL(mediaUrl).hostname);
       return JSON.stringify({
