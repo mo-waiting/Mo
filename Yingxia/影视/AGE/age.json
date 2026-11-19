@@ -2,7 +2,7 @@
   "sites": [
     {
       "key": "age",
-      "name": "AGE动漫）",
+      "name": "AGE动漫",
       "type": 3,
       "api": "age.js",
       "searchable": 1,
