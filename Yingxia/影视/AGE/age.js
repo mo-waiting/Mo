@@ -81,11 +81,41 @@ function manyOf(fragment, selector) {
   try { return pdfa(String(fragment || ''), selector) || []; }
   catch (_) { return []; }
 }
+function decodeHtmlEntities(value) {
+  return String(value || '')
+    .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
+}
+function rawTagAttr(fragment, tagName, attrName) {
+  const html = String(fragment || '');
+  const tagRe = tagName ? new RegExp('<' + tagName + '\\b[^>]*>', 'i') : /<[a-z][^>]*>/i;
+  const tag = html.match(tagRe);
+  if (!tag) return '';
+  const attrRe = new RegExp("\\b" + attrName + "\\s*=\\s*([\"\'])([\\s\\S]*?)\\1", "i");
+  const m = tag[0].match(attrRe);
+  return m ? decodeHtmlEntities(m[2]).trim() : '';
+}
+function rawTagText(fragment, tagName) {
+  const html = String(fragment || '');
+  const re = new RegExp('<' + tagName + '\\b[^>]*>([\\s\\S]*?)<\\/' + tagName + '>', 'i');
+  const m = html.match(re);
+  return m ? decodeHtmlEntities(m[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) : '';
+}
 function cardFromHtml(fragment, base) {
-  const href = attrOf(fragment, 'a[href]', 'href') || attrOf(fragment, 'a', 'href');
-  const title = attrOf(fragment, 'img', 'alt') || textOf(fragment, 'a') || textOf(fragment, 'h3') || textOf(fragment, 'h4');
-  const pic = attrOf(fragment, 'img', 'data-original') || attrOf(fragment, 'img', 'data-src') || attrOf(fragment, 'img', 'src');
-  const note = textOf(fragment, 'span') || textOf(fragment, '.video_item--info');
+  const href = attrOf(fragment, 'a[href]', 'href') || attrOf(fragment, 'a', 'href') || rawTagAttr(fragment, 'a', 'href');
+  const pic = attrOf(fragment, 'img', 'data-original') || attrOf(fragment, 'img', 'data-src') ||
+    attrOf(fragment, 'img', 'data-lazy-src') || attrOf(fragment, 'img', 'src') ||
+    rawTagAttr(fragment, 'img', 'data-original') || rawTagAttr(fragment, 'img', 'data-src') ||
+    rawTagAttr(fragment, 'img', 'data-lazy-src') || rawTagAttr(fragment, 'img', 'src');
+  const title = attrOf(fragment, 'img', 'alt') || attrOf(fragment, 'a', 'title') ||
+    textOf(fragment, 'a') || textOf(fragment, '.video_item-title a') ||
+    textOf(fragment, 'h3') || textOf(fragment, 'h4') ||
+    rawTagAttr(fragment, 'img', 'alt') || rawTagAttr(fragment, 'a', 'title') ||
+    rawTagText(fragment, 'a') || rawTagText(fragment, 'h3') || rawTagText(fragment, 'h4');
+  const note = textOf(fragment, '.video_item--info') || textOf(fragment, '.video_item--desc') ||
+    textOf(fragment, 'span') || rawTagText(fragment, 'span');
   if (!href || !title) return null;
   return {
     vod_id: absolute(href, base),
@@ -294,66 +324,44 @@ const CATALOG_REGIONS = {
   western: { name: '欧美', value: '欧美' }
 };
 
-const CATALOG_FILTER_SPECS = [
-  { key: 'type', name: '类型', segment: 0, fallback: [{ n: 'TV', v: 'TV' }] },
-  { key: 'year', name: '年份', segment: 1, fallback: [{ n: '2026', v: '2026' }] },
-  { key: 'quarter', name: '季度', segment: 8, fallback: [
-    { n: '第1季度', v: '1' }, { n: '第2季度', v: '2' },
-    { n: '第3季度', v: '3' }, { n: '第4季度', v: '4' }
-  ] },
-  { key: 'status', name: '状态', segment: 9, fallback: [
-    { n: '连载', v: '连载' }, { n: '完结', v: '完结' }
-  ] },
-  { key: 'sort', name: '排序', segment: 5, fallback: [
-    { n: '时间排序', v: 'time' }, { n: '点击量', v: '点击量' }
-  ] }
-];
-
-function decodeHtmlEntities(value) {
-  return String(value || '')
-    .replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
-}
-function safeDecodeURIComponent(value) {
-  try { return decodeURIComponent(String(value || '')); } catch (_) { return String(value || ''); }
-}
-function catalogOptionsFromHtml(html, segmentIndex) {
-  const found = new Map();
-  const source = String(html || '');
-  const anchorRe = /<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi;
-  let match;
-  while ((match = anchorRe.exec(source))) {
-    const href = decodeHtmlEntities(match[2]);
-    const marker = href.indexOf('catalog/');
-    if (marker < 0) continue;
-    const pathPart = href.slice(marker + 'catalog/'.length).split(/[?#]/, 1)[0];
-    const segments = pathPart.split('/')[0].split('-');
-    if (segments.length <= segmentIndex) continue;
-    const value = safeDecodeURIComponent(segments[segmentIndex] || '');
-    if (!value || value.toLowerCase() === 'all' || found.has(value)) continue;
-    const label = decodeHtmlEntities(match[3].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || value;
-    found.set(value, { n: label, v: value });
-    if (found.size >= 100) break;
-  }
-  return Array.from(found.values());
-}
-function catalogFiltersFromHtml(html) {
-  const filters = [];
-  for (const spec of CATALOG_FILTER_SPECS) {
-    const options = [{ n: '全部', v: 'all' }];
-    const seen = new Set(['all']);
-    const discovered = catalogOptionsFromHtml(html, spec.segment);
-    for (const option of discovered.concat(spec.fallback)) {
-      const value = String(option.v || '').trim();
-      if (!value || seen.has(value)) continue;
-      seen.add(value);
-      options.push({ n: String(option.n || value), v: value });
+function makeCatalogFilters() {
+  const years = [{ n: '全部', v: 'all' }];
+  for (let year = 2026; year >= 2001; year--) years.push({ n: String(year), v: String(year) });
+  // AGE represents the "2000年以前" bucket with the year segment value 2000.
+  years.push({ n: '2000以前', v: '2000' });
+  return [
+    {
+      key: 'type', name: '类型', init: 'all', value: [
+        { n: '全部', v: 'all' },
+        { n: 'TV', v: 'TV' },
+        { n: '剧场版', v: '剧场版' },
+        { n: 'OVA', v: 'OVA' }
+      ]
+    },
+    { key: 'year', name: '年份', init: 'all', value: years },
+    {
+      key: 'quarter', name: '季度', init: 'all', value: [
+        { n: '全部', v: 'all' },
+        { n: '第一季度', v: '1' },
+        { n: '第二季度', v: '2' },
+        { n: '第三季度', v: '3' },
+        { n: '第四季度', v: '4' }
+      ]
+    },
+    {
+      key: 'status', name: '状态', init: 'all', value: [
+        { n: '全部', v: 'all' },
+        { n: '连载', v: '连载' },
+        { n: '完结', v: '完结' }
+      ]
+    },
+    {
+      key: 'sort', name: '排序', init: 'time', value: [
+        { n: '时间', v: 'time' },
+        { n: '热度', v: '点击量' }
+      ]
     }
-    filters.push({ key: spec.key, name: spec.name, init: 'all', value: options });
-  }
-  return filters;
+  ];
 }
 function getExtendValue(extend, key, aliases, fallback) {
   if (!extend || typeof extend !== 'object') return fallback;
@@ -370,17 +378,65 @@ function catalogPageUrl(regionValue, pageNo, extend) {
   const quarter = getExtendValue(extend, 'quarter', ['季度'], 'all');
   const status = getExtendValue(extend, 'status', ['状态'], 'all');
   const sort = getExtendValue(extend, 'sort', ['排序'], 'time');
-  // AGE /catalog uses ten ordered fields. Letter, genre and resource remain unrestricted.
+  // AGE /catalog ten fields: type-year-letter-genre-resource-sort-page-region-quarter-status.
   const segments = [type, year, 'all', 'all', 'all', sort, String(pageNo), regionValue, quarter, status];
   return SITE + 'catalog/' + segments.map(value => encodeURIComponent(value)).join('-');
+}
+function cardsBySelectors(html, selectors, base) {
+  const out = [], seen = new Set();
+  for (const selector of selectors) {
+    const fragments = manyOf(html, selector);
+    for (const fragment of fragments) {
+      const item = cardFromHtml(fragment, base);
+      if (item && !seen.has(item.vod_id)) {
+        seen.add(item.vod_id);
+        out.push(item);
+      }
+    }
+    // Prefer the first selector that yields valid cards to prevent mixing parent/child duplicates.
+    if (out.length) break;
+  }
+  return out;
+}
+function recommendListResult() {
+  const url = SITE;
+  const page = request(url, { headers: { 'Referer': SITE } });
+  const list = cardsBySelectors(page.content, [
+    'div.video_list_box.recommend_list > div.video_list_box--bd > div > div',
+    '.recommend_list .video_item',
+    '.recommend_list > div > div > div',
+    '#recommend_video_wrapper .video_item'
+  ], page.url || url);
+  return JSON.stringify({ list, page: 1, pagecount: 1, limit: list.length, total: list.length });
 }
 function updateListResult(pageNo) {
   let url = SITE + 'update';
   if (pageNo > 1) url += '?page=' + pageNo;
   const page = request(url, { headers: { 'Referer': SITE } });
-  let fragments = manyOf(page.content, '.video_item');
-  if (!fragments.length) fragments = manyOf(page.content, 'div.video_list_box.recent_update .video_item');
-  const list = fragments.map(fragment => cardFromHtml(fragment, page.url || url)).filter(Boolean);
+  const list = cardsBySelectors(page.content, [
+    '#recent_update_video_wrapper div.video_item',
+    'div.video_list_box.recent_update .video_item',
+    '.recent_update .video_item',
+    '.video_item'
+  ], page.url || url);
+  return JSON.stringify({ list, page: pageNo, pagecount: pageNo + (list.length >= 24 ? 1 : 0), limit: 24, total: (pageNo - 1) * 24 + list.length });
+}
+function catalogListResult(url, pageNo) {
+  const page = request(url, { headers: { 'Referer': SITE } });
+  const list = cardsBySelectors(page.content, [
+    '#cata_video_list > div > div > div',
+    '#cata_video_list .video_item',
+    '#cata_video_list .video_cover',
+    '#cata_video_list > div > div > div > div.video_cover > div > a',
+    '#cata_video_list .video_cover a[href]',
+    '#cata_video_list a[href*="/detail/"]',
+    '.video_item'
+  ], page.url || url);
+  if (!list.length) {
+    log('AGE catalog returned no parsed cards', 'url=' + url, 'htmlLength=' + String(page.content || '').length,
+      'hasCata=' + /cata_video_list/i.test(String(page.content || '')),
+      'hasVideoItem=' + /video_item/i.test(String(page.content || '')));
+  }
   return JSON.stringify({ list, page: pageNo, pagecount: pageNo + (list.length >= 24 ? 1 : 0), limit: 24, total: (pageNo - 1) * 24 + list.length });
 }
 
@@ -401,48 +457,46 @@ const spider = {
   },
 
   async home(filter) {
-    // Fetch the directory once so the filter choices can mirror the options exposed by AGE.
-    let filterHtml = '';
-    try {
-      const page = request(SITE + 'catalog/all-all-all-all-all-time-1-all-all-all', { headers: { 'Referer': SITE } });
-      filterHtml = page.content || '';
-    } catch (e) {
-      log('Catalog filter discovery failed; using verified fallback choices:', e && e.message || e);
-    }
-    const regionFilters = catalogFiltersFromHtml(filterHtml);
-    const filters = {
-      jp: regionFilters,
-      cn: regionFilters,
-      western: regionFilters
-    };
+    const regionFilters = makeCatalogFilters();
+    const cloneFilters = () => regionFilters.map(item => ({
+      key: item.key, name: item.name, init: item.init,
+      value: item.value.map(option => ({ n: option.n, v: option.v }))
+    }));
     return JSON.stringify({
       class: [
-        { type_id: 'update', type_name: '最近更新' },
+        { type_id: 'recommend', type_name: '今日推荐' },
+        { type_id: 'update', type_name: '最新更新' },
         { type_id: 'jp', type_name: '日本' },
         { type_id: 'cn', type_name: '中国' },
         { type_id: 'western', type_name: '欧美' }
       ],
-      filters
+      filters: {
+        jp: cloneFilters(),
+        cn: cloneFilters(),
+        western: cloneFilters()
+      }
     });
   },
 
   async homeVod() {
-    // The recommendation shelf in Yingxia is intentionally based on AGE's recent-update list.
-    return updateListResult(1);
+    // Yingxia home recommendation shelf: AGE homepage's recommendation block.
+    return recommendListResult();
   },
 
   async category(tid, pg, filter, extend) {
     const pageNo = Math.max(1, Number(pg || 1) || 1);
     const categoryId = String(tid || '');
+    if (categoryId === 'recommend') return recommendListResult();
     if (categoryId === 'update') return updateListResult(pageNo);
     const region = CATALOG_REGIONS[categoryId];
     if (!region) return JSON.stringify({ list: [], page: pageNo, pagecount: 1, limit: 24, total: 0 });
-    const url = catalogPageUrl(region.value, pageNo, extend || {});
-    const page = request(url, { headers: { 'Referer': SITE } });
-    let fragments = manyOf(page.content, '.video_item');
-    if (!fragments.length) fragments = manyOf(page.content, 'div.video_list_box .video_item');
-    const list = fragments.map(fragment => cardFromHtml(fragment, page.url || url)).filter(Boolean);
-    return JSON.stringify({ list, page: pageNo, pagecount: pageNo + (list.length >= 24 ? 1 : 0), limit: 24, total: (pageNo - 1) * 24 + list.length });
+    // Hosts differ on whether selected filter values are passed in `filter` or `extend`.
+    const selected = Object.assign({},
+      filter && typeof filter === 'object' ? filter : {},
+      extend && typeof extend === 'object' ? extend : {}
+    );
+    const url = catalogPageUrl(region.value, pageNo, selected);
+    return catalogListResult(url, pageNo);
   },
 
   async search(key, quick, pg) {
