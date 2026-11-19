@@ -4,7 +4,7 @@
       "key": "jpyy",
       "name": "金牌影院",
       "type": 3,
-      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/影视/金牌影院.py",
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/金牌影院.py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
@@ -13,7 +13,7 @@
       "key": "juzhisp",
       "name": "橘汁视频",
       "type": 3,
-      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/影视/橘汁视频.py",
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/橘汁视频.py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
@@ -22,7 +22,7 @@
       "key": "guazi",
       "name": "瓜子",
       "type": 3,
-      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/影视/瓜子.py",
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/瓜子.py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
@@ -31,7 +31,7 @@
       "key": "ikanbot",
       "name": "爱看机器人",
       "type": 3,
-      "api": "",
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/爱看机器人.py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
@@ -40,7 +40,7 @@
       "key": "cupfox",
       "name": "茶杯狐",
       "type": 3,
-      "api": "",
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/茶杯狐.py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
@@ -49,7 +49,7 @@
       "key": "dyrs",
       "name": "电影人生",
       "type": 3,
-      "api": "",
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/电影人生.py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
@@ -58,7 +58,7 @@
       "key": "gulujh",
       "name": "咕噜聚合",
       "type": 3,
-      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/影视/咕噜聚合.py",
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/咕噜聚合.py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
@@ -67,7 +67,7 @@
       "key": "hanxiaoquan",
       "name": "韩小圈",
       "type": 3,
-      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/影视/韩小圈.py",
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/韩小圈.py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
@@ -76,7 +76,7 @@
       "key": "hongguo",
       "name": "红果短剧",
       "type": 3,
-      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/影视/红果短剧(弹幕+显季).py",
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/红果短剧(弹幕+显季).py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
