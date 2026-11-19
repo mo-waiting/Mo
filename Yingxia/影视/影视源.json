@@ -46,6 +46,15 @@
       "filterable": 1
     },
     {
+      "key": "hetun",
+      "name": "河豚",
+      "type": 3,
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/河豚.py",
+      "searchable": 1,
+      "quickSearch": 1,
+      "filterable": 1
+    },
+    {
       "key": "dyrs",
       "name": "电影人生",
       "type": 3,
