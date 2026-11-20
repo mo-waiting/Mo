@@ -8,8 +8,8 @@
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
+      "tmdb": false
     },
-    "tmdb": false
     {
       "key": "tssj",
       "name": "世界听书",
@@ -18,7 +18,7 @@
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
+      "tmdb": false
     },
-    "tmdb": false
   ]
 }
