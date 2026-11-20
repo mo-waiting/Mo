@@ -7,8 +7,10 @@
       "api": "https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/小说/听友听书.py",
       "searchable": 1,
       "quickSearch": 1,
-      "filterable": 1
-      "tmdb": false
+      "filterable": 1,
+      "yingxia": {
+        "tmdb": false
+      }
     },
     {
       "key": "tssj",
@@ -17,8 +19,10 @@
       "api": "https://raw.githubusercontent.com/qist/tvbox/refs/heads/master/py/世界听书.py",
       "searchable": 1,
       "quickSearch": 1,
-      "filterable": 1
-      "tmdb": false
-    },
+      "filterable": 1,
+      "yingxia": {
+        "tmdb": false
+      }
+    }
   ]
 }
