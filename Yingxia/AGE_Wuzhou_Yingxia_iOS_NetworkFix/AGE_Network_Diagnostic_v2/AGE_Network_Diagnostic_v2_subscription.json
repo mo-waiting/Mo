@@ -1,0 +1,13 @@
+{
+  "sites": [
+    {
+      "key": "age_network_diagnostic_v2",
+      "name": "AGE备用域名诊断（临时）",
+      "type": 3,
+      "api": "AGE_Network_Diagnostic_v2.js",
+      "searchable": 0,
+      "quickSearch": 0,
+      "filterable": 0
+    }
+  ]
+}
