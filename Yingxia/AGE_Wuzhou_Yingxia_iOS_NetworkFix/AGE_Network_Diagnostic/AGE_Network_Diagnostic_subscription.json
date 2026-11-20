@@ -1,0 +1,13 @@
+{
+  "sites": [
+    {
+      "key": "age_network_diagnostic",
+      "name": "AGE网络诊断（临时）",
+      "type": 3,
+      "api": "AGE_Network_Diagnostic.js",
+      "searchable": 0,
+      "quickSearch": 0,
+      "filterable": 0
+    }
+  ]
+}
