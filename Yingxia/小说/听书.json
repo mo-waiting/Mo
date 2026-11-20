@@ -1,8 +1,8 @@
-"yingxia": {
-  "version": 1,
-  "kind": "built-in sources"
-}
 {
+  "yingxia": {
+    "version": 1,
+    "kind": "built-in sources"
+  },
   "sites": [
     {
       "key": "tingyou",
