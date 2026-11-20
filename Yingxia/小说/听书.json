@@ -13,7 +13,7 @@
       "key": "tssj",
       "name": "世界听书",
       "type": 3,
-      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/qist/tvbox/refs/heads/master/py/世界听书.py",
+      "api": "https://raw.githubusercontent.com/qist/tvbox/refs/heads/master/py/世界听书.py",
       "searchable": 1,
       "quickSearch": 1,
       "filterable": 1
