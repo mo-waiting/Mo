@@ -1,0 +1,13 @@
+{
+  "sites": [
+    {
+      "key": "age_wuzhou_js",
+      "name": "AGE动漫（五洲派）",
+      "type": 3,
+      "api": "age_wuzhou_yingxia.js",
+      "searchable": 1,
+      "quickSearch": 1,
+      "filterable": 1
+    }
+  ]
+}
