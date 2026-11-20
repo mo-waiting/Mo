@@ -1,14 +1,5 @@
 {
   "sites": [
-        {
-      "key": "age",
-      "name": "AGE动漫",
-      "type": 3,
-      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/AGE/age.js",
-      "searchable": 1,
-      "quickSearch": 1,
-      "filterable": 1
-    },
     {
       "key": "jpyy",
       "name": "金牌影院",
