@@ -91,6 +91,15 @@
       "filterable": 1
     },
     {
+      "key": "moonci",
+      "name": "月之祠",
+      "type": 3,
+      "api": "https://githubproxy.cc/https://raw.githubusercontent.com/mo-waiting/Mo/refs/heads/main/Yingxia/影视/月之祠.py",
+      "searchable": 1,
+      "quickSearch": 1,
+      "filterable": 1
+    },
+    {
       "key": "ghgdm",
       "name": "共和国动漫",
       "type": 3,
